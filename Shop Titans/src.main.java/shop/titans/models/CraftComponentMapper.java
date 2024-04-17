@@ -3,7 +3,6 @@ package shop.titans.models;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collection;
-import java.util.List;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -22,14 +21,7 @@ public class CraftComponentMapper implements RowMapper<CraftReagentComponent> {
 	}
 	
 	public static Collection<CraftReagentComponent> getAllRecords(JdbcTemplate jdbc) {
-		return query(jdbc, "");
+		return jdbc.query("SELECT * FROM item_components", new CraftComponentMapper());
 	}
 	
-	public static CraftReagentComponent getComponentRecord(JdbcTemplate jdbc, int id) {
-		return query(jdbc, " WHERE ic_id = " + id).get(0);
-	}
-	
-	private static List<CraftReagentComponent> query(JdbcTemplate jdbc, String where) {
-		return jdbc.query("SELECT * FROM item_components" + where, new CraftComponentMapper());
-	}
 }

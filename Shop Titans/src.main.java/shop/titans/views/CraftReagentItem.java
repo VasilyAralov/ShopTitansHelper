@@ -11,7 +11,7 @@ public class CraftReagentItem extends ADBObject implements ICraftReagent {
 	public CraftReagentItem(int id, int itemId, int price) {
 		super(id, true);
 		Game.getItem(itemId).addCraft(this);
-		this.price = price;
+		this.price = price * 10;
 	}
 
 	@Override

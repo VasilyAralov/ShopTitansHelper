@@ -57,7 +57,7 @@ public class Item extends ADBObject implements Comparable<Item> {
 	
 	@Override
 	public String toString() {
-		return itemType.getName() + " " + getName() + ". Price " + getPrice() + ". Multicraft chance " + getMulticraft() + "%. Components: " + reagents.toString();
+		return itemType.getName() + " " + getName() + ". Price " + getPrice() + ". Profit " + getProfit() + ". Multicraft chance " + getMulticraft() + "%. Components: " + reagents.toString();
 	}
 
 	public void addCraft(ICraftReagent reagent) {

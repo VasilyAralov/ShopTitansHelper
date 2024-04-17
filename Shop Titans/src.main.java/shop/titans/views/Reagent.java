@@ -27,7 +27,7 @@ public class Reagent extends ADBObject implements ICraftReagent {
 		this.boss = Game.getBoss(bossId);
 		this.bossDrop = Collections.unmodifiableMap(bossDrop);
 		this.areaDrop = Collections.unmodifiableMap(questDrop);
-		price = marketPrice;
+		price = marketPrice * 10;
 		isFinalPrice = false;
 	}
 	

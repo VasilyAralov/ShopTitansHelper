@@ -3,8 +3,8 @@ package shop.titans.controllers;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
@@ -124,108 +124,9 @@ public class Game {
 
 	public static void printBestCraftPerComponent() {
 		calculate();
-		reagents.values().stream().forEach(r -> printItemsForComponent(r, 1));
+		reagents.values().stream().forEach(r -> printItemsForComponent(r));
 	}
 	
-	private static void printItemsForComponent(Reagent r, int limit) {
-		items.values().stream().filter(i -> {
-			return i.getReagents().stream().anyMatch(ic -> {
-				if (ic instanceof CraftReagentComponent ir) {
-					return ir.getReagent().equals(r);
-				}
-				return false;
-			});
-		}).sorted().limit(limit)
-		.forEach(i -> {
-			log.info(i.getItemType().getName() + " " + i.getName() + "(id=" + i.getId() + ") is a best craft using " + r.getName() + "(Reagent (id=" + r.getId() + ") price: " + r.getPrice() + ". Profit " + i.getProfit() + "). Is final price? " + (r.isPriceCalculated() ? "Yes" : "Not"));
-		});
-	}
-	
-	private static void calculate() {
-		var collector = items.values().stream().map(ItemNode::new).collect(Collectors.toCollection(TreeSet::new));
-		collector = removeCalculatedComponents(collector);
-		removeLowestComponents(collector);
-	}
-	
-	private static void removeLowestComponents(TreeSet<ItemNode> collector) {
-		var copy = collector;
-		for (var reagent : reagents.values()) {
-			if (reagent.isPriceCalculated()) {
-				continue;
-			}
-			reagent.setCalculated();
-			copy = removeCalculatedComponents(copy);
-		}
-	}
-
-	private static TreeSet<ItemNode> removeCalculatedComponents(TreeSet<ItemNode> collect) {
-		boolean containsOneComponent = true;
-		var copy = collect; 
-		while (containsOneComponent) {
-			var temp = new TreeSet<ItemNode>();
-			var components = new HashMap<Reagent, Integer>();
-			containsOneComponent = false;
-			for (ItemNode node : copy) {
-				var size = node.leftedReagents.size();
-				if (size == 0) {
-					continue;
-				}
-				if (size == 1) {
-					containsOneComponent = true;
-					var reagent = node.leftedReagents.first();
-					var component = reagent.getReagent();
-					if (components.containsKey(component)) {
-						components.computeIfPresent(component, (k, v) -> v=v+1);
-					} else {
-						components.put(component, 1);
-					}
-					if (component.isPriceCalculated()) {
-						continue;
-					}
-					component.updatePrice((int) Math.ceil(Double.valueOf(node.leftedPrice) / reagent.getCount()));
-					continue;
-				}
-				if (node.leftedPrice <= node.getCost()) {
-					continue;
-				}
-				var leftedComponents = new TreeSet<CraftReagentComponent>();
-				for (CraftReagentComponent component : node.leftedReagents) {
-					if (component.getReagent().isPriceCalculated()) {
-						node.leftedPrice = node.leftedPrice - component.getPrice();
-						continue;
-					}
-					leftedComponents.add(component);
-					var reagent = component.getReagent();
-					if (components.containsKey(reagent)) {
-						components.computeIfPresent(reagent, (k, v) -> v=v+1);
-					} else {
-						components.put(reagent, 1);
-					}
-				}
-				node.leftedReagents = leftedComponents;
-				temp.add(node);
-			}
-			reagents.forEach((k, v) -> {
-				if (v.isPriceCalculated()) {
-					return;
-				}
-				if (components.size() == 0) {
-					return;
-				}
-				if (!components.containsKey(v)) {
-					v.setCalculated();
-				}
-			});
-			copy = temp;
-		}
-		return copy;
-	}
-
-	public static void printBestCraftForComponent(int id) {
-		calculate();
-		printItemsForComponent(getReagent(id), 100);		
-	}
-
 	private static class ItemNode implements Comparable<ItemNode> {
 		private Item item;
 		private TreeSet<CraftReagentComponent> leftedReagents = new TreeSet<>();
@@ -258,6 +159,92 @@ public class Game {
 			return priceDiff;
 		}
 	}
+	
+	private static void calculate() {
+		var itemsToCalculate = items.values().stream().map(ItemNode::new).collect(Collectors.toSet());
+		int prevStep;
+		do {
+			do {
+				prevStep = itemsToCalculate.size();
+				itemsToCalculate = filter(itemsToCalculate);
+			} while (itemsToCalculate.size() != prevStep);
+			removeReagents(itemsToCalculate);
+			itemsToCalculate.forEach(e -> log.error(e.item.toString()));
+			log.error("----------------------------------------------------------------");
+		} while (itemsToCalculate.size() > 0);
+		if (itemsToCalculate.size() != 0) {
+
+		}
+	}
+
+	private static Set<ItemNode> filter(Set<ItemNode> items) {
+		return items.stream().filter(e -> {
+			if (e.leftedReagents.size() == 0) {
+				return false;
+			}
+			if (e.leftedReagents.size() == 1) {
+				var reagent = e.leftedReagents.first();
+				if (reagent.getReagent().isPriceCalculated()) {
+					return false;
+				}
+				reagent.getReagent().updatePrice(e.leftedPrice / reagent.getCount());
+				return false;
+			}
+			if (e.leftedPrice < e.getCost()) {
+				return false;
+			}
+			e.leftedReagents = e.leftedReagents.stream().filter(el -> {
+				if (el.getReagent().isPriceCalculated()) {
+					e.leftedPrice -= el.getPrice();
+					return false;
+				}
+				return true;
+			}).collect(Collectors.toCollection(TreeSet::new));
+			return true;
+		}).collect(Collectors.toSet());
+	}
+	
+	private static void removeReagents(Set<ItemNode> items) {
+		log.error("----------------------------------------------------------------");
+		Map<Reagent, Integer> reagentEntry = new TreeMap<>();
+		for (var node : items) {
+			for (var component : node.leftedReagents) {
+				var counter = reagentEntry.getOrDefault(component.getReagent(), 0);
+				reagentEntry.put(component.getReagent(), ++counter);
+			}
+		}
+		reagentEntry.forEach((k, v) -> {
+			log.error(k + " -> " + v);
+			if (v == 1) {
+				k.setCalculated();
+			}
+		});
+	}
+	
+	private static void printItemsForComponent(Reagent r) {
+		log.info(r.getName() + " (" + r.getPrice() +  "):");
+		var reagentItems = items.values().stream().filter(i -> {
+			return i.getReagents().stream().anyMatch(ic -> {
+				if (ic instanceof CraftReagentComponent ir) {
+					return ir.getReagent().equals(r);
+				}
+				return false;
+			});
+		}).sorted().collect(Collectors.toCollection(TreeSet<Item>::new));
+		var first = reagentItems.first();
+		for (Item item : reagentItems) {
+			if (item.getProfit() + 3 < first.getProfit()) {
+				break;
+			}
+			log.info(item.toString());
+		}
+	}
+	
+	
+	
+	public static void printBestCraftForComponent(int id) {
+		printItemsForComponent(getReagent(id));		
+	}
 
 	public static Item getItem(int id) {
 		try {
@@ -280,13 +267,12 @@ public class Game {
 	}
 
 	public static void printBestCraftForComponent(String reagentName) {
-		calculate();
 		var id = getReagent(reagentName);
 		if (id == NOT_FOUND) {
 			log.error("Wrong reagent name");
 			return;
 		}
-		printItemsForComponent(getReagent(id), 100);
+		printItemsForComponent(getReagent(id));
 	}
 
 	private static Integer getReagent(String reagentName) {

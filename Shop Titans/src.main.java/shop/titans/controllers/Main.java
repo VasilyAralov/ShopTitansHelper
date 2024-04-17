@@ -12,7 +12,7 @@ public class Main {
 	private static final Logger log = LoggerFactory.getLogger(Main.class);
 	
 	public static void main(String[] args) {
-		SpringApplication.run(Main.class, args);
+		var context = SpringApplication.run(Main.class, args);
 		Game.init();
 		Game.printBossSchedule();
 		log.info("----------------------------------------------------------------");
@@ -20,6 +20,7 @@ public class Main {
 		log.info("----------------------------------------------------------------");
 		Game.printBestCraftForComponent("Chronos Crystal");
 		log.info("----------------------------------------------------------------");
+		context.stop();
 	}
 	
 }
